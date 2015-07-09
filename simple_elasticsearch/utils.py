@@ -43,6 +43,23 @@ def get_indices(indices=[]):
         return result
 
 
+def get_indices_from_aliases(es, search_aliases):
+    indices = []
+
+    for alias in search_aliases:
+        indices.extend([
+            index
+            for index, aliases in es.indices.get_aliases().items()
+            if alias in aliases['aliases'].keys()
+        ])
+
+    return indices
+
+
+def get_alias_names(aliases):
+    return set([alias[0] for alias in aliases])
+
+
 def create_aliases(es=None, indices=[]):
     es = es or Elasticsearch(**es_settings.ELASTICSEARCH_CONNECTION_PARAMS)
 
@@ -168,7 +185,19 @@ def rebuild_indices(es=None, indices=[], set_aliases=True):
     # db_logger.setLevel(oldlevel)
 
     if set_aliases:
+        alias_names = get_alias_names(aliases)
+        existing_aliased_indices = get_indices_from_aliases(es, alias_names)
+
         create_aliases(es, aliases)
+
+        new_aliased_indices = get_indices_from_aliases(es, alias_names)
+
+        for index in existing_aliased_indices:
+            # Ensure that there are new aliased indexes, and that our old
+            # index is not somehow in them.
+            if new_aliased_indices and index not in new_aliased_indices:
+                if es_settings.ELASTICSEARCH_DELETE_OLD_INDEXES:
+                    es.indices.delete(index)
 
     # `aliases` is a list of (index alias, index timestamped-name) tuples
     post_indices_rebuild.send(None, indices=aliases, aliases_set=set_aliases)
