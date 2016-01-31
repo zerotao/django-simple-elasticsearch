@@ -216,18 +216,14 @@ def recursive_dict_update(d, u):
 
 
 def queryset_iterator(queryset, chunksize=1000):
-    try:
-        last_pk = queryset.order_by('-pk')[0].pk
-    except IndexError:
-        return
+    total = queryset.count()
+    row_ptr = 0
 
-    queryset = queryset.order_by('pk')
-    pk = queryset[0].pk - 1
-    while pk < last_pk:
-        for row in queryset.filter(pk__gt=pk)[:chunksize]:
-            pk = row.pk
+    while row_ptr < total:
+        for row in queryset[row_ptr:(row_ptr+chunksize)]:
             yield row
         gc.collect()
+        row_ptr += chunksize
 
 
 def get_from_es_or_None(index, type, id, **kwargs):
