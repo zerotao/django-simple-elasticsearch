@@ -101,9 +101,6 @@ class Command(BaseCommand):
             import warnings
             warnings.warn('Rebuilding with `settings.DEBUG = True` can result in out of memory crashes. See https://docs.djangoproject.com/en/stable/ref/settings/#debug', stacklevel=2)
 
-            # make sure the user continues explicitly after seeing this warning
-            no_input = False
-
         user_input = 'y' if no_input else ''
         while user_input != 'y':
             user_input = raw_input('Are you sure you want to rebuild {0} index(es)? [y/N]: '.format('the ' + ', '.join(indexes) if indexes else '**ALL**')).lower()
