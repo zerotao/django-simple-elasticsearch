@@ -85,7 +85,11 @@ def create_aliases(es=None, indices=[]):
             }
         })
 
-    es.indices.update_aliases({'actions': actions})
+    try:
+        es.indices.update_aliases({'actions': actions})
+    except ElasticsearchException, err:
+        sys.stderr.write('non-fatal error updating index aliases: {}'.format(err))
+
 
 
 def create_indices(es=None, indices=[], set_aliases=True):
@@ -153,9 +157,12 @@ def rebuild_indices(es=None, indices=[], set_aliases=True):
             settings = {
                 'number_of_replicas': current_index_settings.get('index', {}).get('number_of_replicas', 1),
                 'refresh_interval': current_index_settings.get('index', {}).get('refresh_interval', '1s'),
-                'merge.policy.merge_factor': current_index_settings.get('index', {}).get('merge.policy.merge_factor', 10)
             }
-            es.indices.put_settings({'index': settings}, current_index_name)
+            try:
+                es.indices.put_settings({'index': settings}, current_index_name)
+            except ElasticsearchException, err:
+                sys.stderr.write('could not reset index policy {}'.format(err.info))
+
             es.indices.refresh(current_index_name)
 
     for type_class, index_alias, index_name in created_indices:
@@ -167,11 +174,13 @@ def rebuild_indices(es=None, indices=[], set_aliases=True):
             current_index_name = index_name
 
             # modify index settings to speed up bulk indexing and then restore them after
-            es.indices.put_settings({'index': {
-                'number_of_replicas': 0,
-                'refresh_interval': '-1',
-                'merge.policy.merge_factor': 30
-            }}, index=index_name)
+            try:
+                es.indices.put_settings({'index': {
+                    'number_of_replicas': 0,
+                    'refresh_interval': '-1',
+                }}, index=index_name)
+            except ElasticsearchException, err:
+                sys.stderr.write('could not change index policy: {}'.format(err.info))
 
         try:
             type_class.bulk_index(es, index_name)
